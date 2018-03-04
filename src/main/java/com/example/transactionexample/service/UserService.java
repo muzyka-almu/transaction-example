@@ -4,8 +4,10 @@ import com.example.transactionexample.dao.UserRepository;
 import com.example.transactionexample.entity.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
@@ -18,19 +20,61 @@ public class UserService {
         return  userRepository.findAll();
     }
 
+    public Iterable<User> save(Iterable<User> users) {
+        return userRepository.saveAll(users);
+    }
 
     @Transactional
-    public Iterable<User> save(List<User> users) {
-        System.out.println("Users count before saving: " + ((Collection<?>)findAll()).size());
+    public boolean saveWithException(List<User> users) {
+        System.out.println("Users count before saving: " + getUserCount());
 
-        Iterable<User> newUsers = userRepository.saveAll(users);
+        save(users);
 
-        System.out.println("Users count after saving: " + ((Collection<?>)findAll()).size());
+        System.out.println("Users count after saving: " + getUserCount());
 
-        if (((Collection<?>)findAll()).size() > 0) {
+        if (getUserCount() > 0) {
             throw new RuntimeException("Something happened");
         }
 
-        return newUsers;
+        return true;
+    }
+
+    @Transactional(isolation = Isolation.SERIALIZABLE)
+    public void save1stExec() {
+        try {
+            execLogic();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Transactional(isolation = Isolation.SERIALIZABLE)
+    public void save2ndExec() {
+        try {
+            execLogic();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private Integer getUserCount() {
+        return ((Collection<?>)findAll()).size();
+    }
+
+    private void execLogic() throws InterruptedException {
+        System.out.println(Thread.currentThread().getName() + ">> users count before changes: " + getUserCount());
+
+        save(getFakeUsers());
+        System.out.println(Thread.currentThread().getName() + ">> saved, users count: " + getUserCount());
+
+        Thread.sleep(5000);
+        System.out.println(Thread.currentThread().getName() + ">> user count after changes: " + getUserCount());
+    }
+
+    private List<User> getFakeUsers() {
+        List<User> users = new ArrayList<>();
+        users.add(new User("Petia", "Petrov"));
+
+        return users;
     }
 }

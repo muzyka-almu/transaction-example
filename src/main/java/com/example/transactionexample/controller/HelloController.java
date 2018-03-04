@@ -26,10 +26,17 @@ public class HelloController {
         return userService.findAll();
     }
 
+    /*
+    OUT:
+        Users count before saving: 0
+        Users count after saving: 2
+        RuntimeException happened: java.lang.RuntimeException: Something happened
+        Final count of users is 0
+     */
     @RequestMapping(value = "/users", method = RequestMethod.POST)
     public Boolean addUsers(@RequestBody List<User> users) {
         try {
-            userService.save(users);
+            userService.saveWithException(users);
         } catch (RuntimeException e) {
             System.out.println("RuntimeException happened: " + e);
         }
@@ -38,4 +45,68 @@ public class HelloController {
 
         return true;
     }
+
+    // Isolation testing --------------------------------------------- start
+    /*
+        @Transactional(isolation = Isolation.READ_UNCOMMITTED) public void save1stExec()
+        @Transactional(isolation = Isolation.READ_UNCOMMITTED) public void save2ndExec()
+        OUT:
+            http-nio-8080-exec-1>> users count before changes: 6
+            http-nio-8080-exec-1>> saved, users count: 7
+            http-nio-8080-exec-2>> users count before changes: 7
+            http-nio-8080-exec-2>> saved, users count: 8
+            http-nio-8080-exec-1>> user count after changes: 8
+            http-nio-8080-exec-2>> user count after changes: 8
+
+        @Transactional(isolation = Isolation.READ_COMMITTED) public void save1stExec()
+        @Transactional(isolation = Isolation.READ_COMMITTED) public void save2ndExec()
+        OUT:
+            http-nio-8080-exec-1>> users count before changes: 8
+            http-nio-8080-exec-1>> saved, users count: 9
+            http-nio-8080-exec-2>> users count before changes: 8
+            http-nio-8080-exec-2>> saved, users count: 9
+            http-nio-8080-exec-1>> user count after changes: 9
+            http-nio-8080-exec-2>> user count after changes: 10
+
+        @Transactional(isolation = Isolation.REPEATABLE_READ) public void save1stExec()
+        @Transactional(isolation = Isolation.REPEATABLE_READ) public void save2ndExec()
+        OUT:
+            http-nio-8080-exec-1>> users count before changes: 10
+            http-nio-8080-exec-1>> saved, users count: 11
+            http-nio-8080-exec-2>> users count before changes: 10
+            http-nio-8080-exec-2>> saved, users count: 11
+            http-nio-8080-exec-1>> user count after changes: 11
+            http-nio-8080-exec-2>> user count after changes: 11
+        INFO: real in db at the end we have 12 rows
+
+        Isolation.DEFAULT == Isolation.REPEATABLE_READ
+
+        @Transactional(isolation = Isolation.SERIALIZABLE) public void save1stExec()
+        @Transactional(isolation = Isolation.SERIALIZABLE) public void save2ndExec()
+        OUT:
+            http-nio-8080-exec-1>> users count before changes: 12
+            http-nio-8080-exec-1>> saved, users count: 13
+            http-nio-8080-exec-1>> user count after changes: 13
+            http-nio-8080-exec-2>> users count before changes: 13
+            http-nio-8080-exec-2>> saved, users count: 14
+            http-nio-8080-exec-2>> user count after changes: 14
+        INFO: 2nd request will start executable when 1st will finished
+     */
+    @RequestMapping(value = "/users-1", method = RequestMethod.GET)
+    public Boolean save1stExec() {
+        userService.save1stExec();
+
+        return true;
+    }
+
+    @RequestMapping(value = "/users-2", method = RequestMethod.GET)
+    public Boolean save2ndExec() {
+        userService.save2ndExec();
+
+        return true;
+    }
+    // Isolation testing --------------------------------------------- end
+
+
+    // TODO set transaction in thread
 }
