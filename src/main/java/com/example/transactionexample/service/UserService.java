@@ -39,6 +39,28 @@ public class UserService {
         return true;
     }
 
+    public void save1and2Exec() throws InterruptedException {
+        Thread t1 = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                save1stExec();
+            }
+        });
+
+        Thread t2 = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                save2ndExec();
+            }
+        });
+
+        t1.start();
+
+        Thread.sleep(1000);
+
+        t2.start();
+    }
+
     @Transactional(isolation = Isolation.SERIALIZABLE)
     public void save1stExec() {
         try {
